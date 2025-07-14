@@ -262,7 +262,7 @@ metadata:
   name: markdown-blog
   namespace: blog
 spec:
-  replicas: 1
+  replicas: 2
   strategy:
     type: Recreate
   selector:
@@ -388,8 +388,17 @@ spec:
                 cd blog
               fi
               
-              echo "Copying files to shared volume..."
-              cp -r files/* /shared/ 2>/dev/null || echo "No files to copy or files directory doesn't exist"
+              echo "Syncing files to shared volume..."
+              # Clear destination directory to remove deleted files
+              rm -rf /shared/*
+              
+              # Copy all files from repo
+              if [ -d "files" ] && [ "$(ls -A files)" ]; then
+                cp -r files/* /shared/
+                echo "Files copied successfully"
+              else
+                echo "No files to copy or files directory doesn't exist"
+              fi
               
               echo "Files in shared volume:"
               ls -la /shared/

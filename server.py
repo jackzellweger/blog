@@ -223,6 +223,11 @@ window.MathJax = {{
                     date_str = info['date'].strftime('%Y-%m-%d')
                     file_list_html += f'<a href="{info["filename"]}">{info["title"]}</a> - {date_str}<br>\n'
             
+            # Check if babe.png exists
+            image_html = ""
+            if os.path.exists('files/babe.png'):
+                image_html = '<center><img src="/babe.png" alt="Babe"></center>'
+            
             # Generate complete HTML page
             html_content = f"""
 <!DOCTYPE html>
@@ -236,6 +241,7 @@ window.MathJax = {{
 <hr>
 {file_list_html}
 <hr>
+{image_html}
 <p>{len(md_files)} file{'s' if len(md_files) != 1 else ''} found</p>
 </body>
 </html>
