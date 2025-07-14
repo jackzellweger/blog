@@ -5,6 +5,20 @@ kind: Namespace
 metadata:
   name: blog
 ---
+# PersistentVolumeClaim for shared storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: blog-content
+  namespace: blog
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: local-path
+---
 # ConfigMap for your Python server
 apiVersion: v1
 kind: ConfigMap
@@ -29,61 +43,45 @@ data:
     class MarkdownHandler(http.server.SimpleHTTPRequestHandler):
         def parse_frontmatter(self, content):
             """Parse YAML frontmatter from markdown content"""
-            # Check if content starts with frontmatter
             if not content.startswith('---'):
                 return {}, content
             
-            # Find the end of frontmatter
             parts = content.split('---', 2)
             if len(parts) < 3:
                 return {}, content
             
             try:
-                # Parse YAML frontmatter
                 frontmatter = yaml.safe_load(parts[1].strip())
                 if frontmatter is None:
                     frontmatter = {}
                 
-                # Return frontmatter and content without frontmatter
                 content_without_frontmatter = parts[2].lstrip('\n')
                 return frontmatter, content_without_frontmatter
             except yaml.YAMLError:
-                # If YAML parsing fails, return empty frontmatter and original content
                 return {}, content
 
         def do_GET(self):
-            # Decode the path
             path = unquote(self.path)
             
-            # Handle root path - show directory listing
             if path == '/':
                 self.serve_directory_listing()
                 return
             elif not path.startswith('/'):
                 path = '/' + path
                 
-            # Convert to filesystem path (now looking in 'files' directory)
             fs_path = 'files' + path
             
-            # If it's a .md file, convert to HTML
             if path.endswith('.md'):
                 if os.path.exists(fs_path):
                     try:
                         with open(fs_path, 'r', encoding='utf-8') as f:
                             md_content = f.read()
                         
-                        # Parse frontmatter
                         frontmatter, content = self.parse_frontmatter(md_content)
-                        
-                        # Convert markdown to HTML
                         html_content = markdown.markdown(content, extensions=['fenced_code', 'tables', 'extra'])
-                        
-                        # Get title from frontmatter or use filename
                         title = frontmatter.get('title', path.split('/')[-1].replace('.md', ''))
                         
-                        # Wrap in basic HTML template
-                        full_html = f"""
-    <!DOCTYPE html>
+                        full_html = f"""<!DOCTYPE html>
     <html>
     <head>
         <meta charset="utf-8">
@@ -114,8 +112,7 @@ data:
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     </body>
-    </html>
-    """
+    </html>"""
                         
                         self.send_response(200)
                         self.send_header('Content-type', 'text/html; charset=utf-8')
@@ -129,9 +126,7 @@ data:
                     self.send_error(404, "Markdown file not found")
                     return
             
-            # For non-markdown files, serve them from the files directory
             if os.path.exists(fs_path):
-                # Get the mime type
                 mime_type, _ = mimetypes.guess_type(fs_path)
                 if mime_type is None:
                     mime_type = 'application/octet-stream'
@@ -155,8 +150,6 @@ data:
         def get_file_info(self, md_file):
             """Get file info including frontmatter date"""
             file_path = os.path.join('files', md_file)
-            
-            # Get file modification time as fallback
             mod_time = os.path.getmtime(file_path)
             fallback_date = datetime.fromtimestamp(mod_time)
             
@@ -166,13 +159,10 @@ data:
                 
                 frontmatter, _ = self.parse_frontmatter(content)
                 
-                # Try to get date from frontmatter
                 if 'date' in frontmatter:
                     date_value = frontmatter['date']
                     if isinstance(date_value, str):
-                        # Try to parse date string
                         try:
-                            # Common date formats
                             for fmt in ['%Y-%m-%d', '%Y-%m-%d %H:%M:%S', '%Y/%m/%d', '%m/%d/%Y']:
                                 try:
                                     parsed_date = datetime.strptime(date_value, fmt)
@@ -180,22 +170,19 @@ data:
                                 except ValueError:
                                     continue
                             else:
-                                # If no format worked, use fallback
                                 parsed_date = fallback_date
                         except:
                             parsed_date = fallback_date
-                    elif hasattr(date_value, 'year'):  # datetime or date object
-                        # Convert date to datetime if needed
-                        if hasattr(date_value, 'hour'):  # already datetime
+                    elif hasattr(date_value, 'year'):
+                        if hasattr(date_value, 'hour'):
                             parsed_date = date_value
-                        else:  # date object, convert to datetime
+                        else:
                             parsed_date = datetime.combine(date_value, datetime.min.time())
                     else:
                         parsed_date = fallback_date
                 else:
                     parsed_date = fallback_date
                 
-                # Get title from frontmatter or use filename
                 title = frontmatter.get('title', md_file.replace('.md', ''))
                 
                 return {
@@ -206,7 +193,6 @@ data:
                 }
                 
             except Exception:
-                # If anything goes wrong, use file modification time
                 return {
                     'filename': md_file,
                     'title': md_file.replace('.md', ''),
@@ -217,30 +203,24 @@ data:
         def serve_directory_listing(self):
             """Generate and serve a directory listing of all .md files in the files directory"""
             try:
-                # Check if files directory exists
                 if not os.path.exists('files'):
                     self.send_error(404, "Files directory not found. Please create a 'files' directory.")
                     return
                     
-                # Get all .md files in files directory
                 md_files = [f for f in os.listdir('files') if f.endswith('.md')]
                 
                 if not md_files:
                     file_list_html = "No markdown files found.<br>Create some .md files in the 'files' directory to get started!"
                 else:
-                    # Get file info and sort by date (most recent first)
                     file_infos = [self.get_file_info(f) for f in md_files]
                     file_infos.sort(key=lambda x: x['date'], reverse=True)
                     
-                    # Create HTML for file listing
                     file_list_html = ""
                     for info in file_infos:
                         date_str = info['date'].strftime('%Y-%m-%d')
                         file_list_html += f'<a href="{info["filename"]}">{info["title"]}</a> - {date_str}<br>\n'
                 
-                # Generate complete HTML page
-                html_content = f"""
-    <!DOCTYPE html>
+                html_content = f"""<!DOCTYPE html>
     <html>
     <head>
         <meta charset="utf-8">
@@ -253,8 +233,7 @@ data:
     <hr>
     <p>{len(md_files)} file{'s' if len(md_files) != 1 else ''} found</p>
     </body>
-    </html>
-    """
+    </html>"""
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'text/html; charset=utf-8')
@@ -266,9 +245,8 @@ data:
 
     if __name__ == "__main__":
         PORT = 3000
-        HOST = "0.0.0.0"  # Bind to all interfaces
+        HOST = "0.0.0.0"
         
-        # Create files directory if it doesn't exist
         if not os.path.exists('files'):
             os.makedirs('files')
             print("Created 'files' directory")
@@ -284,7 +262,9 @@ metadata:
   name: markdown-blog
   namespace: blog
 spec:
-  replicas: 3
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: markdown-blog
@@ -294,34 +274,6 @@ spec:
         app: markdown-blog
     spec:
       containers:
-      - name: git-sync
-        image: alpine/git:latest
-        command: ['sh', '-c']
-        args:
-        - |
-          while true; do
-            cd /tmp
-            echo "Starting git sync..."
-            
-            if [ -d "blog" ]; then
-              echo "Repository exists, pulling latest changes..."
-              cd blog
-              git pull origin main
-            else
-              echo "Cloning repository..."
-              git clone https://github.com/jackzellweger/blog.git
-              cd blog
-            fi
-            
-            echo "Copying files to shared volume..."
-            cp -r files/* /app/files/ 2>/dev/null || echo "No files to copy"
-            
-            echo "Git sync completed, sleeping for 5 minutes..."
-            sleep 300
-          done
-        volumeMounts:
-        - name: blog-files
-          mountPath: /app/files
       - name: blog
         image: python:3.11-slim
         command: ['sh', '-c']
@@ -351,7 +303,8 @@ spec:
         configMap:
           name: server-py
       - name: blog-files
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: blog-content
 ---
 # Service to expose your blog
 apiVersion: v1
@@ -403,3 +356,50 @@ spec:
             name: markdown-blog-service
             port:
               number: 80
+---
+# CronJob to sync your content from git
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: git-sync
+  namespace: blog
+spec:
+  schedule: "*/5 * * * *"  # Every 5 minutes
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: git-sync
+            image: alpine/git:latest
+            command: ['sh', '-c']
+            args:
+            - |
+              cd /tmp
+              echo "Starting git sync..."
+              
+              if [ -d "blog" ]; then
+                echo "Repository exists, pulling latest changes..."
+                cd blog
+                git pull origin main
+              else
+                echo "Cloning repository..."
+                git clone https://github.com/jackzellweger/blog.git
+                cd blog
+              fi
+              
+              echo "Copying files to shared volume..."
+              cp -r files/* /shared/ 2>/dev/null || echo "No files to copy or files directory doesn't exist"
+              
+              echo "Files in shared volume:"
+              ls -la /shared/
+              
+              echo "Git sync completed successfully!"
+            volumeMounts:
+            - name: blog-files
+              mountPath: /shared
+          volumes:
+          - name: blog-files
+            persistentVolumeClaim:
+              claimName: blog-content
+          restartPolicy: OnFailure
