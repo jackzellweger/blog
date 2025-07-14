@@ -225,7 +225,7 @@ window.MathJax = {{
             
             # Check if babe.png exists
             image_html = ""
-            if os.path.exists('files/babe.png'):
+            if os.path.exists('./images/babe.png'):
                 image_html = '<center><img src="/babe.png" alt="Babe"></center>'
             
             # Generate complete HTML page
