@@ -277,20 +277,6 @@ data:
             print(f"Serving at http://0.0.0.0:{PORT}")
             httpd.serve_forever()
 ---
-# PersistentVolumeClaim for shared storage
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: blog-content
-  namespace: blog
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
-  storageClassName: local-path
----
 # Deployment for your blog app
 apiVersion: apps/v1
 kind: Deployment
@@ -298,9 +284,7 @@ metadata:
   name: markdown-blog
   namespace: blog
 spec:
-  replicas: 1
-  strategy:
-    type: Recreate
+  replicas: 3
   selector:
     matchLabels:
       app: markdown-blog
@@ -310,6 +294,34 @@ spec:
         app: markdown-blog
     spec:
       containers:
+      - name: git-sync
+        image: alpine/git:latest
+        command: ['sh', '-c']
+        args:
+        - |
+          while true; do
+            cd /tmp
+            echo "Starting git sync..."
+            
+            if [ -d "blog" ]; then
+              echo "Repository exists, pulling latest changes..."
+              cd blog
+              git pull origin main
+            else
+              echo "Cloning repository..."
+              git clone https://github.com/jackzellweger/blog.git
+              cd blog
+            fi
+            
+            echo "Copying files to shared volume..."
+            cp -r files/* /app/files/ 2>/dev/null || echo "No files to copy"
+            
+            echo "Git sync completed, sleeping for 5 minutes..."
+            sleep 300
+          done
+        volumeMounts:
+        - name: blog-files
+          mountPath: /app/files
       - name: blog
         image: python:3.11-slim
         command: ['sh', '-c']
@@ -339,8 +351,7 @@ spec:
         configMap:
           name: server-py
       - name: blog-files
-        persistentVolumeClaim:
-          claimName: blog-content
+        emptyDir: {}
 ---
 # Service to expose your blog
 apiVersion: v1
@@ -363,11 +374,16 @@ metadata:
   name: blog-ingress
   namespace: blog
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
+  tls:
+  - hosts:
+    - jackzellweger.com
+    - www.jackzellweger.com
+    secretName: blog-tls
   ingressClassName: nginx
   rules:
-  - host: 129.212.138.151.nip.io  # Using nip.io for easy DNS
+  - host: jackzellweger.com
     http:
       paths:
       - path: /
@@ -377,35 +393,13 @@ spec:
             name: markdown-blog-service
             port:
               number: 80
----
-# CronJob to sync your content from git
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: git-sync
-  namespace: blog
-spec:
-  schedule: "*/5 * * * *"  # Every 5 minutes
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          containers:
-          - name: git-sync
-            image: alpine/git:latest
-            command: ['sh', '-c']
-            args:
-            - |
-              echo "Git sync would run here"
-              echo "You'll need to set up your git repo URL"
-              # git clone or git pull your content
-              # Example: git clone https://github.com/yourusername/blog-content.git /tmp/content
-              # cp /tmp/content/*.md /shared/
-            volumeMounts:
-            - name: blog-files
-              mountPath: /shared
-          volumes:
-          - name: blog-files
-            persistentVolumeClaim:
-              claimName: blog-content
-          restartPolicy: OnFailure
+  - host: www.jackzellweger.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: markdown-blog-service
+            port:
+              number: 80
