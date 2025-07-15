@@ -1,7 +1,7 @@
 #!/bin/bash
 
 BEAR_DB_PATH="$HOME/Library/Group Containers/9K33E3U3T4.net.shinyfrog.bear/Application Data/database.sqlite"
-TAG="${1:-#homes/336himrod}"
+TAG="${1:-#projects/blog/live}"
 OUTPUT_DIR="${2:-./exported_notes}"
 mkdir -p "$OUTPUT_DIR"
 
