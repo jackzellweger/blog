@@ -11,6 +11,7 @@ import yaml
 import re
 from datetime import datetime
 
+# Comment
 class MarkdownHandler(http.server.SimpleHTTPRequestHandler):
     def parse_frontmatter(self, content):
         """Parse YAML frontmatter from markdown content"""
