@@ -62,6 +62,9 @@ spec:
   replicas: 2
   strategy:
     type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1    # Only 1 pod can be unavailable at a time
+      maxSurge: 1          # Can create 1 extra pod during update
   selector:
     matchLabels:
       app: markdown-blog
@@ -81,6 +84,14 @@ spec:
           python server.py
         ports:
         - containerPort: 3000
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30    # Wait for pip install + server startup
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
         volumeMounts:
         - name: blog-files
           mountPath: /app

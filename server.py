@@ -40,6 +40,14 @@ class MarkdownHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         # Decode the path
         path = unquote(self.path)
+
+        # Health check endpoint
+        if path == '/health':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{"status": "healthy"}')
+            return
         
         # Handle root path - show directory listing
         if path == '/':
