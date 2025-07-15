@@ -19,241 +19,38 @@ spec:
       storage: 1Gi
   storageClassName: local-path
 ---
-# ConfigMap for your Python server
+# ServiceAccount for git-sync to restart deployments
 apiVersion: v1
-kind: ConfigMap
+kind: ServiceAccount
 metadata:
-  name: server-py
+  name: git-sync-sa
   namespace: blog
-data:
-  server.py: |
-    #!/usr/bin/env python3
-    import http.server
-    import socket
-    import socketserver
-    import os
-    import time
-    import markdown
-    from urllib.parse import unquote
-    import mimetypes
-    import yaml
-    import re
-    from datetime import datetime
-
-    class MarkdownHandler(http.server.SimpleHTTPRequestHandler):
-        def parse_frontmatter(self, content):
-            """Parse YAML frontmatter from markdown content"""
-            if not content.startswith('---'):
-                return {}, content
-            
-            parts = content.split('---', 2)
-            if len(parts) < 3:
-                return {}, content
-            
-            try:
-                frontmatter = yaml.safe_load(parts[1].strip())
-                if frontmatter is None:
-                    frontmatter = {}
-                
-                content_without_frontmatter = parts[2].lstrip('\n')
-                return frontmatter, content_without_frontmatter
-            except yaml.YAMLError:
-                return {}, content
-
-        def do_GET(self):
-            path = unquote(self.path)
-            
-            if path == '/':
-                self.serve_directory_listing()
-                return
-            elif not path.startswith('/'):
-                path = '/' + path
-                
-            fs_path = 'files' + path
-            
-            if path.endswith('.md'):
-                if os.path.exists(fs_path):
-                    try:
-                        with open(fs_path, 'r', encoding='utf-8') as f:
-                            md_content = f.read()
-                        
-                        frontmatter, content = self.parse_frontmatter(md_content)
-                        html_content = markdown.markdown(content, extensions=['fenced_code', 'tables', 'extra'])
-                        title = frontmatter.get('title', path.split('/')[-1].replace('.md', ''))
-                        
-                        full_html = f"""<!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>{title} - Jack Zellweger</title>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
-        <style>
-            @media (max-width: 600px) {{ 
-                body {{ font-size: 18px; }}
-                pre {{ overflow-x: auto; }}
-                img {{ max-width: 100%; }}
-            }}
-        </style>
-    </head>
-    <body>
-    <a href="/">Home</a>
-    <hr>
-    {html_content}
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script>hljs.highlightAll();</script>
-    <script>
-    window.MathJax = {{
-      tex: {{
-        inlineMath: [['$', '$']],
-        displayMath: [['$$', '$$']]
-      }}
-    }};
-    </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    </body>
-    </html>"""
-                        
-                        self.send_response(200)
-                        self.send_header('Content-type', 'text/html; charset=utf-8')
-                        self.end_headers()
-                        self.wfile.write(full_html.encode('utf-8'))
-                        return
-                    except Exception as e:
-                        self.send_error(500, f"Error processing markdown: {e}")
-                        return
-                else:
-                    self.send_error(404, "Markdown file not found")
-                    return
-            
-            if os.path.exists(fs_path):
-                mime_type, _ = mimetypes.guess_type(fs_path)
-                if mime_type is None:
-                    mime_type = 'application/octet-stream'
-                
-                try:
-                    with open(fs_path, 'rb') as f:
-                        content = f.read()
-                    
-                    self.send_response(200)
-                    self.send_header('Content-type', mime_type)
-                    self.send_header('Content-Length', str(len(content)))
-                    self.end_headers()
-                    self.wfile.write(content)
-                    return
-                except Exception as e:
-                    self.send_error(500, f"Error serving file: {e}")
-                    return
-            else:
-                self.send_error(404, "File not found")
-
-        def get_file_info(self, md_file):
-            """Get file info including frontmatter date"""
-            file_path = os.path.join('files', md_file)
-            mod_time = os.path.getmtime(file_path)
-            fallback_date = datetime.fromtimestamp(mod_time)
-            
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                
-                frontmatter, _ = self.parse_frontmatter(content)
-                
-                if 'date' in frontmatter:
-                    date_value = frontmatter['date']
-                    if isinstance(date_value, str):
-                        try:
-                            for fmt in ['%Y-%m-%d', '%Y-%m-%d %H:%M:%S', '%Y/%m/%d', '%m/%d/%Y']:
-                                try:
-                                    parsed_date = datetime.strptime(date_value, fmt)
-                                    break
-                                except ValueError:
-                                    continue
-                            else:
-                                parsed_date = fallback_date
-                        except:
-                            parsed_date = fallback_date
-                    elif hasattr(date_value, 'year'):
-                        if hasattr(date_value, 'hour'):
-                            parsed_date = date_value
-                        else:
-                            parsed_date = datetime.combine(date_value, datetime.min.time())
-                    else:
-                        parsed_date = fallback_date
-                else:
-                    parsed_date = fallback_date
-                
-                title = frontmatter.get('title', md_file.replace('.md', ''))
-                
-                return {
-                    'filename': md_file,
-                    'title': title,
-                    'date': parsed_date,
-                    'frontmatter': frontmatter
-                }
-                
-            except Exception:
-                return {
-                    'filename': md_file,
-                    'title': md_file.replace('.md', ''),
-                    'date': fallback_date,
-                    'frontmatter': {}
-                }
-
-        def serve_directory_listing(self):
-            """Generate and serve a directory listing of all .md files in the files directory"""
-            try:
-                if not os.path.exists('files'):
-                    self.send_error(404, "Files directory not found. Please create a 'files' directory.")
-                    return
-                    
-                md_files = [f for f in os.listdir('files') if f.endswith('.md')]
-                
-                if not md_files:
-                    file_list_html = "No markdown files found.<br>Create some .md files in the 'files' directory to get started!"
-                else:
-                    file_infos = [self.get_file_info(f) for f in md_files]
-                    file_infos.sort(key=lambda x: x['date'], reverse=True)
-                    
-                    file_list_html = ""
-                    for info in file_infos:
-                        date_str = info['date'].strftime('%Y-%m-%d')
-                        file_list_html += f'<a href="{info["filename"]}">{info["title"]}</a> - {date_str}<br>\n'
-                
-                html_content = f"""<!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <title>Jack Zellweger</title>
-    </head>
-    <body>
-    <h1>Jack Zellweger</h1>
-    <hr>
-    {file_list_html}
-    <hr>
-    <p>{len(md_files)} file{'s' if len(md_files) != 1 else ''} found</p>
-    </body>
-    </html>"""
-                
-                self.send_response(200)
-                self.send_header('Content-type', 'text/html; charset=utf-8')
-                self.end_headers()
-                self.wfile.write(html_content.encode('utf-8'))
-                
-            except Exception as e:
-                self.send_error(500, f"Error generating directory listing: {e}")
-
-    if __name__ == "__main__":
-        PORT = 3000
-        HOST = "0.0.0.0"
-        
-        if not os.path.exists('files'):
-            os.makedirs('files')
-            print("Created 'files' directory")
-        
-        with socketserver.ThreadingTCPServer((HOST, PORT), MarkdownHandler) as httpd:
-            print(f"Serving at http://0.0.0.0:{PORT}")
-            httpd.serve_forever()
+---
+# Role to allow restarting deployments
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: blog
+  name: deployment-restarter
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "patch"]
+---
+# RoleBinding to grant the ServiceAccount the role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: git-sync-deployment-restarter
+  namespace: blog
+subjects:
+- kind: ServiceAccount
+  name: git-sync-sa
+  namespace: blog
+roleRef:
+  kind: Role
+  name: deployment-restarter
+  apiGroup: rbac.authorization.k8s.io
 ---
 # Deployment for your blog app
 apiVersion: apps/v1
@@ -264,7 +61,7 @@ metadata:
 spec:
   replicas: 2
   strategy:
-    type: Recreate
+    type: RollingUpdate
   selector:
     matchLabels:
       app: markdown-blog
@@ -280,17 +77,13 @@ spec:
         args:
         - |
           pip install pyyaml markdown
-          cp /config/server.py /app/server.py
-          chmod +x /app/server.py
           cd /app
           python server.py
         ports:
         - containerPort: 3000
         volumeMounts:
-        - name: server-config
-          mountPath: /config
         - name: blog-files
-          mountPath: /app/files
+          mountPath: /app
         resources:
           requests:
             memory: "64Mi"
@@ -299,9 +92,6 @@ spec:
             memory: "128Mi"
             cpu: "100m"
       volumes:
-      - name: server-config
-        configMap:
-          name: server-py
       - name: blog-files
         persistentVolumeClaim:
           claimName: blog-content
@@ -369,12 +159,19 @@ spec:
     spec:
       template:
         spec:
+          serviceAccountName: git-sync-sa
           containers:
           - name: git-sync
             image: alpine/git:latest
             command: ['sh', '-c']
             args:
             - |
+              # Install kubectl
+              apk add --no-cache curl
+              curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+              chmod +x kubectl
+              mv kubectl /usr/local/bin/
+              
               cd /tmp
               echo "Starting git sync..."
               
@@ -388,20 +185,56 @@ spec:
                 cd blog
               fi
               
+              # Check if server.py has changed
+              SERVER_CHANGED=false
+              if [ -f "server.py" ]; then
+                NEW_SERVER_HASH=$(sha256sum server.py | cut -d' ' -f1)
+                if [ -f "/shared/server.py" ]; then
+                  OLD_SERVER_HASH=$(sha256sum /shared/server.py | cut -d' ' -f1)
+                  if [ "$NEW_SERVER_HASH" != "$OLD_SERVER_HASH" ]; then
+                    echo "server.py has changed (old: $OLD_SERVER_HASH, new: $NEW_SERVER_HASH)"
+                    SERVER_CHANGED=true
+                  else
+                    echo "server.py unchanged"
+                  fi
+                else
+                  echo "server.py is new"
+                  SERVER_CHANGED=true
+                fi
+              fi
+              
               echo "Syncing files to shared volume..."
               # Clear destination directory to remove deleted files
               rm -rf /shared/*
               
-              # Copy all files from repo
+              # Copy server.py from repo root
+              if [ -f "server.py" ]; then
+                cp server.py /shared/
+                echo "server.py copied successfully"
+              else
+                echo "Warning: server.py not found in repository root"
+              fi
+              
+              # Create files directory and copy markdown files
+              mkdir -p /shared/files
               if [ -d "files" ] && [ "$(ls -A files)" ]; then
-                cp -r files/* /shared/
-                echo "Files copied successfully"
+                cp -r files/* /shared/files/
+                echo "Markdown files copied successfully"
               else
                 echo "No files to copy or files directory doesn't exist"
               fi
               
+              # Restart deployment if server.py changed
+              if [ "$SERVER_CHANGED" = "true" ]; then
+                echo "Restarting deployment due to server.py changes..."
+                kubectl patch deployment markdown-blog -n blog -p '{"spec":{"template":{"metadata":{"annotations":{"restartedAt":"'$(date +%s)'"}}}}}'
+                echo "Deployment restart triggered"
+              fi
+              
               echo "Files in shared volume:"
               ls -la /shared/
+              echo "Files in shared/files:"
+              ls -la /shared/files/ 2>/dev/null || echo "No files directory"
               
               echo "Git sync completed successfully!"
             volumeMounts:
