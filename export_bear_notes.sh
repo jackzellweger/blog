@@ -2,7 +2,7 @@
 
 BEAR_DB_PATH="$HOME/Library/Group Containers/9K33E3U3T4.net.shinyfrog.bear/Application Data/database.sqlite"
 TAG="${1:-#projects/blog/live}"
-OUTPUT_DIR="${2:-./exported_notes}"
+OUTPUT_DIR="${2:-./files}"
 mkdir -p "$OUTPUT_DIR"
 
 # Delete all existing .md files in the output directory
