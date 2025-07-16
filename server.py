@@ -76,7 +76,7 @@ class MarkdownHandler(http.server.SimpleHTTPRequestHandler):
                             'markdown.extensions.tables', 
                             'markdown.extensions.extra',
                             'markdown.extensions.sane_lists'
-                        ]
+                        ], tab_length=3
                     )
                     html_content = md.convert(content)
                     
