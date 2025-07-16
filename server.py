@@ -117,8 +117,11 @@ window.MathJax = {{
                     self.wfile.write(full_html.encode('utf-8'))
                     return
                 except Exception as e:
-                    self.send_error(500, f"Error processing markdown: {e}")
-                    return
+                    if e[0] == errno.EPIPE:
+                       self.send_error(500, f"Detected remote disconnect") # remote peer disconnected
+                    else
+                        self.send_error(500, f"Error processing markdown: {e}")
+                        return
             else:
                 self.send_error(404, "Markdown file not found")
                 return
@@ -140,13 +143,9 @@ window.MathJax = {{
                 self.end_headers()
                 self.wfile.write(content)
                 return
-            except Exception as e:
-                if e[0] == errno.EPIPE:
-                   # remote peer disconnected
-                   self.send_error(500, f"Detected remote disconnect")
-                else:
-                   self.send_error(500, f"Error serving file: {e}")
-                   return
+            except Exception as e: 
+               self.send_error(500, f"Error serving file: {e}")
+               return
         else:
             self.send_error(404, "File not found")
 
