@@ -79,7 +79,7 @@ spec:
         command: ['sh', '-c']
         args:
         - |
-          pip install pyyaml markdown
+          pip install pyyaml mistune
           cd /app
           python server.py
         ports:

@@ -4,8 +4,6 @@ import socket
 import socketserver
 import os
 import time
-import markdown
-import re
 from urllib.parse import unquote
 import mimetypes
 import yaml
@@ -69,11 +67,9 @@ class MarkdownHandler(http.server.SimpleHTTPRequestHandler):
                     
                     # Parse frontmatter
                     frontmatter, content = self.parse_frontmatter(md_content)
-                    content = re.sub(r'^(\s*\d+\.\s+\*\*[^*]+\*\*\s*\n)(   )', r'\1    ', content, flags=re.MULTILINE)
-
                     
                     # Convert markdown to HTML
-                    html_content = markdown.markdown(content, extensions=['fenced_code', 'tables', 'extra'])
+                    html_content = mistune.html(content)
                     
                     # Get title from frontmatter or use filename
                     title = frontmatter.get('title', path.split('/')[-1].replace('.md', ''))
