@@ -143,7 +143,7 @@ window.MathJax = {{
             except Exception as e:
                 if e[0] == errno.EPIPE:
                    # remote peer disconnected
-                   print "Detected remote disconnect"
+                   self.send_error(500, f"Detected remote disconnect")
                 else:
                    self.send_error(500, f"Error serving file: {e}")
                    return
