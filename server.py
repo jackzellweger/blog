@@ -70,7 +70,15 @@ class MarkdownHandler(http.server.SimpleHTTPRequestHandler):
                     frontmatter, content = self.parse_frontmatter(md_content)
                     
                     # Convert markdown to HTML
-                    html_content = markdown.markdown(content, extensions=['fenced_code', 'tables', 'extra'])
+                    md = markdown.Markdown(
+                        extensions=[
+                            'markdown.extensions.fenced_code',
+                            'markdown.extensions.tables', 
+                            'markdown.extensions.extra',
+                            'markdown.extensions.sane_lists'
+                        ]
+                    )
+                    html_content = md.convert(content)
                     
                     # Get title from frontmatter or use filename
                     title = frontmatter.get('title', path.split('/')[-1].replace('.md', ''))
@@ -117,7 +125,7 @@ window.MathJax = {{
                     self.wfile.write(full_html.encode('utf-8'))
                     return
                 except Exception as e:
-                    if e[0] == errno.EPIPE:
+                    if hasattr(e, 'errno') and e.errno == 32:  # EPIPE
                        self.send_error(500, f"Detected remote disconnect") # remote peer disconnected
                     else:
                         self.send_error(500, f"Error processing markdown: {e}")
