@@ -119,7 +119,7 @@ window.MathJax = {{
                 except Exception as e:
                     if e[0] == errno.EPIPE:
                        self.send_error(500, f"Detected remote disconnect") # remote peer disconnected
-                    else
+                    else:
                         self.send_error(500, f"Error processing markdown: {e}")
                         return
             else:
