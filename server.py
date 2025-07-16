@@ -5,6 +5,7 @@ import socketserver
 import os
 import time
 import markdown
+import re
 from urllib.parse import unquote
 import mimetypes
 import yaml
@@ -68,17 +69,11 @@ class MarkdownHandler(http.server.SimpleHTTPRequestHandler):
                     
                     # Parse frontmatter
                     frontmatter, content = self.parse_frontmatter(md_content)
+                    content = re.sub(r'^(\s*\d+\.\s+\*\*[^*]+\*\*\s*\n)(   )', r'\1    ', content, flags=re.MULTILINE)
+
                     
                     # Convert markdown to HTML
-                    md = markdown.Markdown(
-                        extensions=[
-                            'markdown.extensions.fenced_code',
-                            'markdown.extensions.tables', 
-                            'markdown.extensions.extra',
-                            'markdown.extensions.sane_lists'
-                        ], tab_length=3
-                    )
-                    html_content = md.convert(content)
+                    html_content = markdown.markdown(content, extensions=['fenced_code', 'tables', 'extra'])
                     
                     # Get title from frontmatter or use filename
                     title = frontmatter.get('title', path.split('/')[-1].replace('.md', ''))
