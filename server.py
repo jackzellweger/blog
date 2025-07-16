@@ -141,8 +141,12 @@ window.MathJax = {{
                 self.wfile.write(content)
                 return
             except Exception as e:
-                self.send_error(500, f"Error serving file: {e}")
-                return
+                if e[0] == errno.EPIPE:
+                   # remote peer disconnected
+                   print "Detected remote disconnect"
+                else:
+                   self.send_error(500, f"Error serving file: {e}")
+                   return
         else:
             self.send_error(404, "File not found")
 
