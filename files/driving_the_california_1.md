@@ -141,23 +141,23 @@ Wait at California St. & Mason St. for the car to arrive. It's possible that the
 ### Do A Night Walk Through Pacific Heights
 [Google Maps Route](https://maps.app.goo.gl/mQs1eKHJgju3hCQa6)
 1. **Lafayette Park**
-   - Gough St & Washington St
-   - Beautiful hilltop park with city views
+    - Gough St & Washington St
+    - Beautiful hilltop park with city views
 2. **Pacific Ave & Fillmore St**
-   - San Francisco
-   - Entering the heart of Pacific Heights
+    - San Francisco
+    - Entering the heart of Pacific Heights
 3. **Fillmore St & Broadway**
-   - San Francisco
-   - "Billionaires Row" with impressive mansions
+    - San Francisco
+    - "Billionaires Row" with impressive mansions
 4. **Vallejo St & Fillmore St**
-   - San Francisco
-   - Great viewpoint
+    - San Francisco
+    - Great viewpoint
 5. **Alta Plaza Park**
-   - Jackson St & Steiner St
-   - Another park with panoramic night views
+    - Jackson St & Steiner St
+    - Another park with panoramic night views
 6. **Lyon Street Steps**
-   - 2990-2996 Lyon St
-   - Spectacular nighttime city views
+    - 2990-2996 Lyon St
+    - Spectacular nighttime city views
 ### Return To Your Hotel & Go To Sleep Early!
 You'll need the rest for your day in Marin tomorrow.
 ## Day 7: Friday, May 2nd
