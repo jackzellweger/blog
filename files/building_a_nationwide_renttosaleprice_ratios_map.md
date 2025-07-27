@@ -1,9 +1,9 @@
 ---
-title: Rent to sale price ratios map
+title: Building a nationwide rent-to-sale-price ratios map
 date: 2023-08-10
 tags: tech
 ---
-# Rent to sale price ratios map
+# Building a nationwide rent-to-sale-price ratios map
 # Try It!
 [Click here](https://stellar-khapse-0bf486.netlify.app/)
 # Installation

@@ -1,9 +1,9 @@
 ---
-title: A NYC real estate price predictor
+title: A nyc real estate price predictor using machine learning
 date: 2022-04-20
 tags: tech
 ---
-# A nyc real estate price predictor
+# A nyc real estate price predictor using machine learning
 
 Welcome to my real estate predictor API project! I built this API to make predictions of New York City real estate easily accessible to anyone.
 
