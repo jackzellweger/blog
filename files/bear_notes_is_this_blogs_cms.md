@@ -3,7 +3,7 @@ title: Bear notes is this blog's cms
 date: 2025-07-26
 tags: tech
 ---
-## Bear notes is this blog's cms
+# Bear notes is this blog's cms
 I love Bear and use it for everything. I've been meaning to start this blog for a while but didn't want to manage different versions of my content in different places. That's why I build a deployment pipeline that takes my writing directly from the Bear notes database and throws it up online.
 A few components that constitute this site. First, a Digital Ocean Droplet. Was really easy to get started with them. On that host, I have K3s running. In K3s, we have a Python web-server pulling `.md` files from a PersistentVolume.
 My deployment pipeline starts with a shell script that reads all my Bear notes tagged with `#live`, cleans them up, and dumps them into a folder. I can then do any cleanup I want and push them up to a repo. Here's the script.
