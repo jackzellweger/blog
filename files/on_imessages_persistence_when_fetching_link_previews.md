@@ -1,6 +1,7 @@
 ---
 title: On imessage's persistence when fetching link previews
 date: 2025-07-13
+tags: tech
 ---
 # On imessage's persistence when fetching link previews
 

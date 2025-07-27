@@ -49,10 +49,17 @@ class MarkdownHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(b'{"status": "healthy"}')
             return
         
-        # Handle root path - show directory listing
+        # Handle root path - show all posts
         if path == '/':
             self.serve_directory_listing()
             return
+        
+        # Handle tag filtering - check if path is a single word (tag)
+        if path.count('/') == 1 and path.startswith('/') and not path.endswith('.md'):
+            tag = path[1:]  # Remove leading slash
+            if tag and not '.' in tag:  # Simple tag validation
+                self.serve_directory_listing(filter_tag=tag)
+                return
         elif not path.startswith('/'):
             path = '/' + path
             
@@ -195,10 +202,20 @@ window.MathJax = {{
             # Get title from frontmatter or use filename
             title = frontmatter.get('title', md_file.replace('.md', ''))
             
+            # Get tags from frontmatter (normalize to lowercase list)
+            tags = frontmatter.get('tags', [])
+            if isinstance(tags, str):
+                tags = [tags.lower().strip()]
+            elif isinstance(tags, list):
+                tags = [tag.lower().strip() for tag in tags if isinstance(tag, str)]
+            else:
+                tags = []
+            
             return {
                 'filename': md_file,
                 'title': title,
                 'date': parsed_date,
+                'tags': tags,
                 'frontmatter': frontmatter
             }
             
@@ -208,11 +225,12 @@ window.MathJax = {{
                 'filename': md_file,
                 'title': md_file.replace('.md', ''),
                 'date': fallback_date,
+                'tags': [],
                 'frontmatter': {}
             }
 
-    def serve_directory_listing(self):
-        """Generate and serve a directory listing of all .md files in the files directory"""
+    def serve_directory_listing(self, filter_tag=None):
+        """Generate and serve a directory listing of .md files, optionally filtered by tag"""
         try:
             # Check if files directory exists
             if not os.path.exists('files'):
@@ -227,18 +245,39 @@ window.MathJax = {{
             else:
                 # Get file info and sort by date (most recent first)
                 file_infos = [self.get_file_info(f) for f in md_files]
+                
+                # Filter by tag if specified
+                if filter_tag:
+                    filter_tag_lower = filter_tag.lower()
+                    file_infos = [info for info in file_infos if filter_tag_lower in info['tags']]
+                
                 file_infos.sort(key=lambda x: x['date'], reverse=True)
                 
                 # Create HTML for file listing
-                file_list_html = ""
-                for info in file_infos:
-                    date_str = info['date'].strftime('%Y-%m-%d')
-                    file_list_html += f'<a href="{info["filename"]}">{info["title"]}</a> - {date_str}<br>\n'
+                if not file_infos and filter_tag:
+                    file_list_html = f"No posts found with tag '{filter_tag}'.<br><a href='/'>View all posts</a>"
+                elif not file_infos:
+                    file_list_html = "No markdown files found.<br>Create some .md files in the 'files' directory to get started!"
+                else:
+                    file_list_html = ""
+                    for info in file_infos:
+                        date_str = info['date'].strftime('%Y-%m-%d')
+                        file_list_html += f'<a href="{info["filename"]}">{info["title"]}</a> - {date_str}<br>\n'
             
             # Check if babe.png exists
             image_html = ""
             if os.path.exists('files/images/babe.png'):
                 image_html = '<center><img src="/images/babe.png" alt="Babe"></center>'
+            
+            # Generate page title
+            if filter_tag:
+                page_title = f"Jack Zellweger - {filter_tag.title()}"
+                heading = f"Jack Zellweger - {filter_tag.title()}"
+                count_text = f"{len(file_infos) if filter_tag else len(md_files)} post{'s' if (len(file_infos) if filter_tag else len(md_files)) != 1 else ''} found"
+            else:
+                page_title = "Jack Zellweger"
+                heading = "Jack Zellweger"
+                count_text = f"{len(md_files)} file{'s' if len(md_files) != 1 else ''} found"
             
             # Generate complete HTML page
             html_content = f"""
@@ -246,15 +285,15 @@ window.MathJax = {{
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Jack Zellweger</title>
+    <title>{page_title}</title>
 </head>
 <body>
-<h1>Jack Zellweger</h1>
+<h1>{heading}</h1>
 <hr>
 {file_list_html}
 <hr>
 {image_html}
-<p>{len(md_files)} file{'s' if len(md_files) != 1 else ''} found</p>
+<p>{count_text}</p>
 </body>
 </html>
 """

@@ -1,6 +1,7 @@
 ---
 title: How to reset the nix build user on macos
 date: 2025-02-07
+tags: tech
 ---
 # How to reset the nix build user on macos
 

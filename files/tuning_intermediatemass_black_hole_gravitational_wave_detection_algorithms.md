@@ -1,6 +1,7 @@
 ---
 title: Tuning intermediate-mass black hole gravitational wave detection algorithms
 date: 2023-05-15
+tags: tech
 ---
 # Tuning intermediate-mass black hole gravitational wave detection algorithms
 

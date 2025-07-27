@@ -1,6 +1,7 @@
 ---
 title: Bear notes is this blog's cms
 date: 2025-07-26
+tags: tech
 ---
 ## Bear notes is this blog's cms
 I love Bear and use it for everything. I've been meaning to start this blog for a while but didn't want to manage different versions of my content in different places. That's why I build a deployment pipeline that takes my writing directly from the Bear notes database and throws it up online.

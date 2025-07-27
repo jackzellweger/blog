@@ -1,6 +1,7 @@
 ---
 title: How to reinstall nix on macos
 date: 2024-10-12
+tags: tech
 ---
 # How to uninstall and reinstall nix
 ### Sources
