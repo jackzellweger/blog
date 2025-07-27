@@ -288,6 +288,9 @@ window.MathJax = {{
     <meta charset="utf-8">
     <title>{page_title}</title>
     <style>
+        body {{
+            font-size: 20px;
+        }}
         .header-container {{
             display: flex;
             align-items: center;
@@ -297,14 +300,19 @@ window.MathJax = {{
             margin: 0;
         }}
         .header-container img {{
-            height: 1em;
+            height: 2.5em;
+        }}
+        @media (max-width: 600px) {{
+            body {{
+                font-size: 22px;
+            }}
         }}
     </style>
 </head>
 <body>
 <div class="header-container">
-    <h1>{heading}</h1>
     <img src="/john_building.svg" alt="John Building">
+    <h1>{heading}</h1>
 </div>
 <hr>
 {file_list_html}
@@ -337,7 +345,7 @@ window.MathJax = {{
             return socket.gethostbyname(socket.gethostname())
 
 if __name__ == "__main__":
-    PORT = 3000
+    PORT = int(os.environ.get('PORT', 3000))
     HOST = "0.0.0.0"  # Bind to all interfaces
     
     # Create files directory if it doesn't exist
