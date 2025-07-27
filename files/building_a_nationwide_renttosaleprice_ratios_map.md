@@ -74,7 +74,7 @@ Was there a way to turn these vast datasets into actionable insights that my fri
 
 So, I set out to make a heatmap of this sales price to rental price ratio across the country. I wanted to end up with something like this. Maybe I could even make it user-friendly and even a bit interactive; could I make it so when I hover my mouse over each polygon, I get a ZIP code and ratio?
 
-![Example Heatmap](./images/example-heatmap.png?raw=true)
+<img src="./images/example-heatmap.png" width="400">
 
 ### Getting The Sales Data
 
@@ -298,8 +298,7 @@ s2 = rentalsAndSalesSorted.plot(y='RentToSaleRatio',figsize=(20,7), use_index=Fa
 s2 = rentalsAndSalesSorted.plot(y='RentToSaleRatio',figsize=(10,7), use_index=False);
 ```
 
-
-![Plot of rent:sale price ratio by array index.](./images/ratios-plot.png?raw=true)
+<img src="./images/ratios-plot.png" width="400">
 
 On the left side, we see a gradual flattening from the relatively inexpensive outliers into what looks like something linear. Then, as we approach the right side, we see a rapid drop-off. This represents super-expensive properties in Manhattan, NY and Los Angeles, CA. These are places where it’s relatively easy to rent (though still expensive), but disproportionately expensive to buy.
 
