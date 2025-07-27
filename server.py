@@ -264,10 +264,8 @@ window.MathJax = {{
                         date_str = info['date'].strftime('%Y-%m-%d')
                         file_list_html += f'<a href="{info["filename"]}">{info["title"]}</a> - {date_str}<br>\n'
             
-            # Check if babe.png exists
+            # No image on front page
             image_html = ""
-            if os.path.exists('files/images/babe.png'):
-                image_html = '<center><img src="/images/babe.png" alt="Babe"></center>'
             
             # Generate page title
             if filter_tag:
