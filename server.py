@@ -133,28 +133,31 @@ window.MathJax = {{
                 self.send_error(404, "Markdown file not found")
                 return
         
-        # For non-markdown files, serve them from the files directory
-        if os.path.exists(fs_path):
-            # Get the mime type
-            mime_type, _ = mimetypes.guess_type(fs_path)
-            if mime_type is None:
-                mime_type = 'application/octet-stream'
-            
-            try:
-                with open(fs_path, 'rb') as f:
-                    content = f.read()
+        # For non-markdown files, try files directory first, then root directory
+        file_locations = [fs_path, path[1:]]  # files/path and just path (without leading /)
+        
+        for file_path in file_locations:
+            if os.path.exists(file_path):
+                # Get the mime type
+                mime_type, _ = mimetypes.guess_type(file_path)
+                if mime_type is None:
+                    mime_type = 'application/octet-stream'
                 
-                self.send_response(200)
-                self.send_header('Content-type', mime_type)
-                self.send_header('Content-Length', str(len(content)))
-                self.end_headers()
-                self.wfile.write(content)
-                return
-            except Exception as e: 
-               self.send_error(500, f"Error serving file: {e}")
-               return
-        else:
-            self.send_error(404, "File not found")
+                try:
+                    with open(file_path, 'rb') as f:
+                        content = f.read()
+                    
+                    self.send_response(200)
+                    self.send_header('Content-type', mime_type)
+                    self.send_header('Content-Length', str(len(content)))
+                    self.end_headers()
+                    self.wfile.write(content)
+                    return
+                except Exception as e: 
+                   self.send_error(500, f"Error serving file: {e}")
+                   return
+        
+        self.send_error(404, "File not found")
 
     def get_file_info(self, md_file):
         """Get file info including frontmatter date"""
@@ -284,9 +287,25 @@ window.MathJax = {{
 <head>
     <meta charset="utf-8">
     <title>{page_title}</title>
+    <style>
+        .header-container {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+        .header-container h1 {{
+            margin: 0;
+        }}
+        .header-container img {{
+            height: 1em;
+        }}
+    </style>
 </head>
 <body>
-<h1>{heading}</h1>
+<div class="header-container">
+    <h1>{heading}</h1>
+    <img src="/john_building.svg" alt="John Building">
+</div>
 <hr>
 {file_list_html}
 <hr>
