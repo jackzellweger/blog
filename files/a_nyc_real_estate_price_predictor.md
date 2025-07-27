@@ -1,6 +1,6 @@
 ---
 title: A NYC real estate price predictor
-date: 2023-08-21
+date: 2022-04-20
 tags: tech
 ---
 # A nyc real estate price predictor
