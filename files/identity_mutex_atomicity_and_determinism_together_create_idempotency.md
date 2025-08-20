@@ -3,7 +3,7 @@ title: Identity, Mutex, Atomicity, and Determinism Together Create Idempotency
 date: 2025-07-21
 tags: tech
 ---
-# Identity, Mutex, Atomicity, and Determinism Together Create Idempotency
+# Identity, mutex, atomicity, and determinism together create idempotency
 ## We’d like to build ETLs that can get interrupted at any time and restart safely
 Our system has to stay healthy through any interruption—Kubernetes evictions, network disconnects, even a fat-fingered kubectl delete pod. That requires two properties:
 - **Interruptibility:** every subroutine is atomic, so we can kill a job at any point with zero corruption.
