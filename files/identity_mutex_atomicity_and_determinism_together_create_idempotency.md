@@ -1,5 +1,5 @@
 ---
-title: Identity, Mutex, Atomicity, and Determinism Together Create Idempotency
+title: Identity, mutex, atomicity, and determinism together create idempotency
 date: 2025-07-21
 tags: tech
 ---
