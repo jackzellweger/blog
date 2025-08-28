@@ -1,0 +1,258 @@
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: blog
+---
+# PersistentVolumeClaim for shared storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: blog-content
+  namespace: blog
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: local-path
+---
+# ServiceAccount for git-sync to restart deployments
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: git-sync-sa
+  namespace: blog
+---
+# Role to allow restarting deployments
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: blog
+  name: deployment-restarter
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "patch"]
+---
+# RoleBinding to grant the ServiceAccount the role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: git-sync-deployment-restarter
+  namespace: blog
+subjects:
+- kind: ServiceAccount
+  name: git-sync-sa
+  namespace: blog
+roleRef:
+  kind: Role
+  name: deployment-restarter
+  apiGroup: rbac.authorization.k8s.io
+---
+# Deployment for your blog app
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: markdown-blog
+  namespace: blog
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1    # Only 1 pod can be unavailable at a time
+      maxSurge: 1          # Can create 1 extra pod during update
+  selector:
+    matchLabels:
+      app: markdown-blog
+  template:
+    metadata:
+      labels:
+        app: markdown-blog
+    spec:
+      containers:
+      - name: blog
+        image: python:3.11-slim
+        command: ['sh', '-c']
+        args:
+        - |
+          pip install pyyaml mistune
+          cd /app
+          python server.py
+        ports:
+        - containerPort: 3000
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30    # Wait for pip install + server startup
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: blog-files
+          mountPath: /app
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: blog-files
+        persistentVolumeClaim:
+          claimName: blog-content
+---
+# Service to expose your blog
+apiVersion: v1
+kind: Service
+metadata:
+  name: markdown-blog-service
+  namespace: blog
+spec:
+  selector:
+    app: markdown-blog
+  ports:
+  - port: 80
+    targetPort: 3000
+  type: ClusterIP
+---
+# Ingress to expose to the internet
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: blog-ingress
+  namespace: blog
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+  - hosts:
+    - jackzellweger.com
+    - www.jackzellweger.com
+    secretName: blog-tls
+  ingressClassName: nginx
+  rules:
+  - host: jackzellweger.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: markdown-blog-service
+            port:
+              number: 80
+  - host: www.jackzellweger.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: markdown-blog-service
+            port:
+              number: 80
+---
+# CronJob to sync your content from git
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: git-sync
+  namespace: blog
+spec:
+  schedule: "*/5 * * * *"  # Every 5 minutes
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: git-sync-sa
+          containers:
+          - name: git-sync
+            image: alpine/git:latest
+            command: ['sh', '-c']
+            args:
+            - |
+              # Install kubectl
+              apk add --no-cache curl
+              curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+              chmod +x kubectl
+              mv kubectl /usr/local/bin/
+              
+              cd /tmp
+              echo "Starting git sync..."
+              
+              if [ -d "blog" ]; then
+                echo "Repository exists, pulling latest changes..."
+                cd blog
+                git pull origin main
+              else
+                echo "Cloning repository..."
+                git clone https://github.com/jackzellweger/blog.git
+                cd blog
+              fi
+              
+              # Check if server.py has changed
+              SERVER_CHANGED=false
+              if [ -f "server.py" ]; then
+                NEW_SERVER_HASH=$(sha256sum server.py | cut -d' ' -f1)
+                if [ -f "/shared/server.py" ]; then
+                  OLD_SERVER_HASH=$(sha256sum /shared/server.py | cut -d' ' -f1)
+                  if [ "$NEW_SERVER_HASH" != "$OLD_SERVER_HASH" ]; then
+                    echo "server.py has changed (old: $OLD_SERVER_HASH, new: $NEW_SERVER_HASH)"
+                    SERVER_CHANGED=true
+                  else
+                    echo "server.py unchanged"
+                  fi
+                else
+                  echo "server.py is new"
+                  SERVER_CHANGED=true
+                fi
+              fi
+              
+              echo "Syncing files to shared volume..."
+              # Clear destination directory to remove deleted files
+              rm -rf /shared/*
+              
+              # Copy server.py from repo root
+              if [ -f "server.py" ]; then
+                cp server.py /shared/
+                echo "server.py copied successfully"
+              else
+                echo "Warning: server.py not found in repository root"
+              fi
+              
+              # Create files directory and copy markdown files
+              mkdir -p /shared/files
+              if [ -d "files" ] && [ "$(ls -A files)" ]; then
+                cp -r files/* /shared/files/
+                echo "Markdown files copied successfully"
+              else
+                echo "No files to copy or files directory doesn't exist"
+              fi
+              
+              # Restart deployment if server.py changed
+              if [ "$SERVER_CHANGED" = "true" ]; then
+                echo "Restarting deployment due to server.py changes..."
+                kubectl patch deployment markdown-blog -n blog -p '{"spec":{"template":{"metadata":{"annotations":{"restartedAt":"'$(date +%s)'"}}}}}'
+                echo "Deployment restart triggered"
+              fi
+              
+              echo "Files in shared volume:"
+              ls -la /shared/
+              echo "Files in shared/files:"
+              ls -la /shared/files/ 2>/dev/null || echo "No files directory"
+              
+              echo "Git sync completed successfully!"
+            volumeMounts:
+            - name: blog-files
+              mountPath: /shared
+          volumes:
+          - name: blog-files
+            persistentVolumeClaim:
+              claimName: blog-content
+          restartPolicy: OnFailure
