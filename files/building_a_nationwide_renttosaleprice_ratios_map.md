@@ -327,7 +327,7 @@ Clearly some of the wealthiest areas of the country.
 
 ### What The Left Side of The Curve Looks Like
 
-Let’s take a look at some of the ZIP codes with the lowest rent:sale price ratio. I took off the filter to really find the outliers in the U.S.
+Let’s take a look at some of the ZIP codes with the highest rent:sale price ratio. I took off the filter to really find the outliers in the U.S.
 
 
 **Castle Point, St. Louis, MO. Rent:sale = 0.016429 (1.6%)**
