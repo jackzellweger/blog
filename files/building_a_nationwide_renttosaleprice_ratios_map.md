@@ -427,8 +427,7 @@ We can now use this function and *Mathematica’s* [Natural Language Input](http
 plotFunction /@{Entity["Country","UnitedStates"]}
 ```
 
-![Heatmap of The U.S.](./images/heatmap-us.png?raw=true)
-
+<img src="./images/heatmap-us.png" width="300">
 
 These computations took on the order of 5 minutes to complete and render a single map. We can start to see that the data (probably constrained by the Zillow rental data) mostly fills the urban areas of the U.S. That’s no surprise. We can start zooming into different metro areas to get more detail.
 
