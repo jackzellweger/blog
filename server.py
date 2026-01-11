@@ -37,6 +37,17 @@ class MarkdownHandler(http.server.SimpleHTTPRequestHandler):
             # If YAML parsing fails, return empty frontmatter and original content
             return {}, content
 
+    def parse_html_frontmatter(self, content):
+        """Parse YAML frontmatter from HTML comment at start of file"""
+        match = re.match(r'^\s*<!--\s*(.*?)\s*-->', content, re.DOTALL)
+        if not match:
+            return {}
+        try:
+            frontmatter = yaml.safe_load(match.group(1))
+            return frontmatter if frontmatter else {}
+        except yaml.YAMLError:
+            return {}
+
     def do_GET(self):
         # Decode the path
         path = unquote(self.path)
@@ -159,9 +170,9 @@ window.MathJax = {{
         
         self.send_error(404, "File not found")
 
-    def get_file_info(self, md_file):
+    def get_file_info(self, filename):
         """Get file info including frontmatter date"""
-        file_path = os.path.join('files', md_file)
+        file_path = os.path.join('files', filename)
         
         # Get file modification time as fallback
         mod_time = os.path.getmtime(file_path)
@@ -170,8 +181,12 @@ window.MathJax = {{
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            
-            frontmatter, _ = self.parse_frontmatter(content)
+
+            # Parse frontmatter differently for HTML vs MD
+            if filename.endswith('.html'):
+                frontmatter = self.parse_html_frontmatter(content)
+            else:
+                frontmatter, _ = self.parse_frontmatter(content)
             
             # Try to get date from frontmatter
             if 'date' in frontmatter:
@@ -203,7 +218,7 @@ window.MathJax = {{
                 parsed_date = fallback_date
             
             # Get title from frontmatter or use filename
-            title = frontmatter.get('title', md_file.replace('.md', ''))
+            title = frontmatter.get('title', re.sub(r'\.(md|html)$', '', filename))
             
             # Get tags from frontmatter (normalize to lowercase list)
             tags = frontmatter.get('tags', [])
@@ -215,39 +230,39 @@ window.MathJax = {{
                 tags = []
             
             return {
-                'filename': md_file,
+                'filename': filename,
                 'title': title,
                 'date': parsed_date,
                 'tags': tags,
                 'frontmatter': frontmatter
             }
-            
+
         except Exception:
             # If anything goes wrong, use file modification time
             return {
-                'filename': md_file,
-                'title': md_file.replace('.md', ''),
+                'filename': filename,
+                'title': re.sub(r'\.(md|html)$', '', filename),
                 'date': fallback_date,
                 'tags': [],
                 'frontmatter': {}
             }
 
     def serve_directory_listing(self, filter_tag=None):
-        """Generate and serve a directory listing of .md files, optionally filtered by tag"""
+        """Generate and serve a directory listing of .md and .html files, optionally filtered by tag"""
         try:
             # Check if files directory exists
             if not os.path.exists('files'):
                 self.send_error(404, "Files directory not found. Please create a 'files' directory.")
                 return
-                
-            # Get all .md files in files directory
-            md_files = [f for f in os.listdir('files') if f.endswith('.md')]
-            
-            if not md_files:
-                file_list_html = "No markdown files found.<br>Create some .md files in the 'files' directory to get started!"
+
+            # Get all .md and .html files in files directory
+            all_files = [f for f in os.listdir('files') if f.endswith('.md') or f.endswith('.html')]
+
+            if not all_files:
+                file_list_html = "No files found.<br>Create some .md or .html files in the 'files' directory to get started!"
             else:
                 # Get file info and sort by date (most recent first)
-                file_infos = [self.get_file_info(f) for f in md_files]
+                file_infos = [self.get_file_info(f) for f in all_files]
                 
                 # Filter by tag if specified
                 if filter_tag:
@@ -260,7 +275,7 @@ window.MathJax = {{
                 if not file_infos and filter_tag:
                     file_list_html = f"No posts found with tag '{filter_tag}'.<br><a href='/'>View all posts</a>"
                 elif not file_infos:
-                    file_list_html = "No markdown files found.<br>Create some .md files in the 'files' directory to get started!"
+                    file_list_html = "No files found.<br>Create some .md or .html files in the 'files' directory to get started!"
                 else:
                     file_list_html = ""
                     for info in file_infos:
@@ -274,11 +289,11 @@ window.MathJax = {{
             if filter_tag:
                 page_title = f"Jack Zellweger - {filter_tag.title()}"
                 heading = f"Jack Zellweger - {filter_tag.title()}"
-                count_text = f"{len(file_infos) if filter_tag else len(md_files)} post{'s' if (len(file_infos) if filter_tag else len(md_files)) != 1 else ''} found"
+                count_text = f"{len(file_infos) if filter_tag else len(all_files)} post{'s' if (len(file_infos) if filter_tag else len(all_files)) != 1 else ''} found"
             else:
                 page_title = "Jack Zellweger"
                 heading = "Jack Zellweger"
-                count_text = f"{len(md_files)} file{'s' if len(md_files) != 1 else ''} found"
+                count_text = f"{len(all_files)} file{'s' if len(all_files) != 1 else ''} found"
             
             # Generate complete HTML page
             html_content = f"""
